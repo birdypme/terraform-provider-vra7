@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/vmware/terraform-provider-vra7/utils"
+	"github.com/birdypme/terraform-provider-vra7/utils"
 )
 
 //ResourceActionTemplate - is used to store information
@@ -252,6 +252,14 @@ func resourceSchema() map[string]*schema.Schema {
 				Type:     schema.TypeMap,
 				Optional: true,
 				Elem:     schema.TypeString,
+			},
+		},
+		utils.RESOURCE_DISKS: {
+			Type:     schema.TypeList,
+			Optional: true,
+			Computed: true,
+			Elem: &schema.Schema{
+				Type:     schema.TypeMap,
 			},
 		},
 		utils.CATALOG_CONFIGURATION: {

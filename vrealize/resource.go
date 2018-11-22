@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/birdypme/terraform-provider-vra7/utils"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/op/go-logging"
-	"github.com/vmware/terraform-provider-vra7/utils"
 )
 
 var (
@@ -27,6 +27,7 @@ var (
 	deploymentConfiguration map[string]interface{}
 	resourceConfiguration   map[string]interface{}
 	catalogConfiguration    map[string]interface{}
+	resourceDisks           []interface{}
 )
 
 //Replace the value for a given key in a catalog request template.
@@ -125,6 +126,21 @@ func createResource(d *schema.ResourceData, meta interface{}) error {
 				break
 			}
 		}
+	}
+
+	for _, diskDetails := range resourceDisks {
+		Machine1 := requestTemplate.Data["Machine1"].(map[string]interface{})
+		Machine1data := Machine1["data"].(map[string]interface{})
+		disks := Machine1data["disks"].([]interface{})
+		diskn := make(map[string]interface{})
+		diskn["componentTypeId"] = "com.vmware.csp.iaas.blueprint.service"
+		diskn["classId"] = "Infrastructure.Compute.Machine.MachineDisk"
+		diskn["data"] = make(map[string]interface{})
+		// source := diskDetails.(map[string]interface{})
+		for diskKey, diskValue := range diskDetails.(map[string]interface{}) {
+			diskn["data"].(map[string]interface{})[diskKey] = diskValue
+		}
+		Machine1data["disks"] = append(disks, diskn)
 	}
 
 	//update template with deployment level config
@@ -840,6 +856,8 @@ func readProviderConfiguration(d *schema.ResourceData) {
 	log.Info("Failed message: %v ", failedMessage)
 	resourceConfiguration = d.Get(utils.RESOURCE_CONFIGURATION).(map[string]interface{})
 	log.Info("Resource Configuration: %v ", resourceConfiguration)
+	resourceDisks = d.Get(utils.RESOURCE_DISKS).([]interface{})
+	log.Info("Resource Disks: %v ", resourceDisks)
 	deploymentConfiguration = d.Get(utils.DEPLOYMENT_CONFIGURATION).(map[string]interface{})
 	log.Info("Deployment Configuration: %v ", deploymentConfiguration)
 	catalogConfiguration = d.Get(utils.CATALOG_CONFIGURATION).(map[string]interface{})

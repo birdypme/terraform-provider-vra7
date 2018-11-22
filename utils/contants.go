@@ -9,6 +9,7 @@ const (
 	FAILED_MESSAGE           = "failed_message"
 	DEPLOYMENT_CONFIGURATION = "deployment_configuration"
 	RESOURCE_CONFIGURATION   = "resource_configuration"
+	RESOURCE_DISKS           = "resource_disks"
 	CATALOG_CONFIGURATION    = "catalog_configuration"
 	REQUEST_STATUS           = "request_status"
 	INFRASTRUCTURE_VIRTUAL   = "Infrastructure.Virtual"
