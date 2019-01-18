@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/birdypme/terraform-provider-vra7/utils"
 	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/vmware/terraform-provider-vra7/utils"
 	"gopkg.in/jarcoal/httpmock.v1"
 )
 
@@ -307,8 +307,8 @@ func TestConfigValidityFunction(t *testing.T) {
 
 	mockResourceData := schema.TestResourceDataRaw(t, resourceSchema, resourceDataMap)
 
-	readProviderConfiguration(mockResourceData)
-	err := checkResourceConfigValidity(mockRequestTemplate)
+	providerConfiguration := readProviderConfiguration(mockResourceData)
+	err := checkResourceConfigValidity(mockRequestTemplate, providerConfiguration)
 	if err != nil {
 		t.Errorf("The terraform config is valid, failed to validate. Expecting no error, but found %v ", err.Error())
 	}
@@ -322,9 +322,9 @@ func TestConfigValidityFunction(t *testing.T) {
 	}
 
 	mockResourceData = schema.TestResourceDataRaw(t, resourceSchema, resourceDataMap)
-	readProviderConfiguration(mockResourceData)
+	providerConfiguration = readProviderConfiguration(mockResourceData)
 
-	err = checkResourceConfigValidity(mockRequestTemplate)
+	err = checkResourceConfigValidity(mockRequestTemplate, providerConfiguration)
 	if err != nil {
 		t.Errorf("The terraform config is valid, failed to validate. Expecting no error, but found %v ", err.Error())
 	}
@@ -336,13 +336,13 @@ func TestConfigValidityFunction(t *testing.T) {
 	}
 
 	mockResourceData = schema.TestResourceDataRaw(t, resourceSchema, resourceDataMap)
-	readProviderConfiguration(mockResourceData)
+	providerConfiguration = readProviderConfiguration(mockResourceData)
 
 	var mockInvalidKeys []string
 	mockInvalidKeys = append(mockInvalidKeys, "mock.machine3.vSphere.mock.cpu")
 
 	validityErr := fmt.Sprintf(utils.CONFIG_INVALID_ERROR, strings.Join(mockInvalidKeys, ", "))
-	err = checkResourceConfigValidity(mockRequestTemplate)
+	err = checkResourceConfigValidity(mockRequestTemplate, providerConfiguration)
 	// this should throw an error as none of the string combinations (mock, mock.machine3, mock.machine3.vsphere, etc)
 	// matches the component names(mock.test.machine1 and machine2) in the request template
 	if err == nil {

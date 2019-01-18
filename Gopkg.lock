@@ -354,17 +354,6 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:088a4af44899ca11849b22fb834891cd7e31d310e0d6ede5c8f071bebf6ef1cb"
-  name = "github.com/birdypme/terraform-provider-vra7"
-  packages = [
-    "utils",
-    "vrealize",
-  ]
-  pruneopts = ""
-  revision = "88688609cd8d848c17cb124646f2d90709741c47"
-
-[[projects]]
-  branch = "master"
   digest = "1:d2438f1c85d855408197edcbac2ba137513738ccefbd12396b0af99d5449880b"
   name = "golang.org/x/crypto"
   packages = [
@@ -481,8 +470,6 @@
     "github.com/hashicorp/terraform/plugin",
     "github.com/hashicorp/terraform/terraform",
     "github.com/op/go-logging",
-    "github.com/birdypme/terraform-provider-vra7/utils",
-    "github.com/birdypme/terraform-provider-vra7/vrealize",
     "gopkg.in/jarcoal/httpmock.v1",
   ]
   solver-name = "gps-cdcl"

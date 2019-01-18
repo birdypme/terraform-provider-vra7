@@ -15,20 +15,23 @@ import (
 	"github.com/op/go-logging"
 )
 
+// jchampseix: fix these global variables to become (most of them) local variables!
 var (
-	log                     = logging.MustGetLogger(utils.LOGGER_ID)
-	catalogItemName         string
-	catalogItemID           string
-	businessGroupId         string
-	businessGroupName       string
-	waitTimeout             int
-	requestStatus           string
-	failedMessage           string
-	deploymentConfiguration map[string]interface{}
-	resourceConfiguration   map[string]interface{}
-	catalogConfiguration    map[string]interface{}
-	resourceDisks           []interface{}
+	log = logging.MustGetLogger(utils.LOGGER_ID)
 )
+
+type ProviderConfiguration struct {
+	catalogItemName         string                 // `json:"catalogItemName"` // struct field catalogItemName has json tag but is not exported
+	catalogItemID           string                 // `json:"catalogItemID"`
+	businessGroupId         string                 // `json:"businessGroupId"`
+	businessGroupName       string                 // `json:"businessGroupName"`
+	waitTimeout             int                    // `json:"waitTimeout"`
+	failedMessage           string                 // `json:"failedMessage"`
+	deploymentConfiguration map[string]interface{} // `json:"deploymentConfiguration"`
+	resourceConfiguration   map[string]interface{} // `json:"resourceConfiguration"`
+	catalogConfiguration    map[string]interface{} // `json:"catalogConfiguration"`
+	resourceDisks           []interface{}          // `json:"resourceDisks"`
+}
 
 //Replace the value for a given key in a catalog request template.
 func replaceValueInRequestTemplate(templateInterface map[string]interface{}, field string, value interface{}) (map[string]interface{}, bool) {
@@ -75,19 +78,19 @@ func addValueToRequestTemplate(templateInterface map[string]interface{}, field s
 func createResource(d *schema.ResourceData, meta interface{}) error {
 	// Get client handle
 	vRAClient := meta.(*APIClient)
-	readProviderConfiguration(d)
+	providerConfiguration := readProviderConfiguration(d)
 
-	requestTemplate, validityErr := checkConfigValuesValidity(vRAClient, d)
+	requestTemplate, validityErr := checkConfigValuesValidity(vRAClient, d, providerConfiguration)
 	if validityErr != nil {
 		return validityErr
 	}
-	validityErr = checkResourceConfigValidity(requestTemplate)
+	validityErr = checkResourceConfigValidity(requestTemplate, providerConfiguration)
 	if validityErr != nil {
 		return validityErr
 	}
 
-	for field1 := range catalogConfiguration {
-		requestTemplate.Data[field1] = catalogConfiguration[field1]
+	for field1 := range providerConfiguration.catalogConfiguration {
+		requestTemplate.Data[field1] = providerConfiguration.catalogConfiguration[field1]
 	}
 
 	// Get all component names in the blueprint corresponding to the catalog item.
@@ -105,7 +108,7 @@ func createResource(d *schema.ResourceData, meta interface{}) error {
 	sort.Sort(byLength(componentNameList))
 
 	//Update request template field values with values from user configuration.
-	for configKey, configValue := range resourceConfiguration {
+	for configKey, configValue := range providerConfiguration.resourceConfiguration {
 		for _, componentName := range componentNameList {
 			// User-supplied resource configuration keys are expected to be of the form:
 			//     <component name>.<property name>.
@@ -128,7 +131,7 @@ func createResource(d *schema.ResourceData, meta interface{}) error {
 		}
 	}
 
-	for _, diskDetails := range resourceDisks {
+	for _, diskDetails := range providerConfiguration.resourceDisks {
 		Machine1 := requestTemplate.Data["Machine1"].(map[string]interface{})
 		Machine1data := Machine1["data"].(map[string]interface{})
 		disks := Machine1data["disks"].([]interface{})
@@ -145,7 +148,7 @@ func createResource(d *schema.ResourceData, meta interface{}) error {
 
 	//update template with deployment level config
 	// limit to description and reasons as other things could get us into trouble
-	for depField, depValue := range deploymentConfiguration {
+	for depField, depValue := range providerConfiguration.deploymentConfiguration {
 		fieldstr := fmt.Sprintf("%s", depField)
 		switch fieldstr {
 		case "description":
@@ -191,13 +194,13 @@ func updateResource(d *schema.ResourceData, meta interface{}) error {
 	catalogItemRequestID := d.Id()
 	// Get client handle
 	vRAClient := meta.(*APIClient)
-	readProviderConfiguration(d)
+	providerConfiguration := readProviderConfiguration(d)
 
-	requestTemplate, validityErr := checkConfigValuesValidity(vRAClient, d)
+	requestTemplate, validityErr := checkConfigValuesValidity(vRAClient, d, providerConfiguration)
 	if validityErr != nil {
 		return validityErr
 	}
-	validityErr = checkResourceConfigValidity(requestTemplate)
+	validityErr = checkResourceConfigValidity(requestTemplate, providerConfiguration)
 	if validityErr != nil {
 		return validityErr
 	}
@@ -265,7 +268,7 @@ func updateResource(d *schema.ResourceData, meta interface{}) error {
 							}
 							configChanged := false
 							returnFlag := false
-							for configKey := range resourceConfiguration {
+							for configKey := range providerConfiguration.resourceConfiguration {
 								//compare resource list (resource_name) with user configuration fields
 								if strings.HasPrefix(configKey, componentName+".") {
 									//If user_configuration contains resource_list element
@@ -277,7 +280,7 @@ func updateResource(d *schema.ResourceData, meta interface{}) error {
 									resourceActionTemplate.Data, returnFlag = replaceValueInRequestTemplate(
 										resourceActionTemplate.Data,
 										nameList[1],
-										resourceConfiguration[configKey])
+										providerConfiguration.resourceConfiguration[configKey])
 									if returnFlag == true {
 										configChanged = true
 									}
@@ -635,8 +638,7 @@ func (vRAClient *APIClient) GetRequestResourceView(catalogRequestId string) (*Re
 //RequestCatalogItem - Make a catalog request.
 func (vRAClient *APIClient) RequestCatalogItem(requestTemplate *CatalogItemRequestTemplate) (*CatalogRequest, error) {
 	//Form a path to set a REST call to create a machine
-	path := fmt.Sprintf("/catalog-service/api/consumer/entitledCatalogItems/%s"+
-		"/requests", requestTemplate.CatalogItemID)
+	path := fmt.Sprintf(utils.CREATE_ENTITLEDCATALOGITEM_API, requestTemplate.CatalogItemID)
 
 	catalogRequest := new(CatalogRequest)
 	apiError := new(APIError)
@@ -664,7 +666,7 @@ func (vRAClient *APIClient) RequestCatalogItem(requestTemplate *CatalogItemReque
 }
 
 // check if the resource configuration is valid in the terraform config file
-func checkResourceConfigValidity(requestTemplate *CatalogItemRequestTemplate) error {
+func checkResourceConfigValidity(requestTemplate *CatalogItemRequestTemplate, providerConfiguration *ProviderConfiguration) error {
 	log.Info("Checking if the terraform config file is valid")
 
 	// Get all component names in the blueprint corresponding to the catalog item.
@@ -681,7 +683,7 @@ func checkResourceConfigValidity(requestTemplate *CatalogItemRequestTemplate) er
 	// if the key in config is machine1.vsphere.custom.location, match every string after each dot
 	// until a matching string is found in componentSet.
 	// If found, it's a valid key else the component name is invalid
-	for k := range resourceConfiguration {
+	for k := range providerConfiguration.resourceConfiguration {
 		var key = k
 		var isValid bool
 		for strings.LastIndex(key, ".") != -1 {
@@ -707,9 +709,9 @@ func checkResourceConfigValidity(requestTemplate *CatalogItemRequestTemplate) er
 
 // check if the values provided in the config file are valid and set
 // them in the resource schema. Requires to call APIs
-func checkConfigValuesValidity(vRAClient *APIClient, d *schema.ResourceData) (*CatalogItemRequestTemplate, error) {
+func checkConfigValuesValidity(vRAClient *APIClient, d *schema.ResourceData, providerConfiguration *ProviderConfiguration) (*CatalogItemRequestTemplate, error) {
 	// 	// If catalog_name and catalog_id both not provided then return an error
-	if len(catalogItemName) <= 0 && len(catalogItemID) <= 0 {
+	if len(providerConfiguration.catalogItemName) <= 0 && len(providerConfiguration.catalogItemID) <= 0 {
 		return nil, fmt.Errorf("Either catalog_name or catalog_id should be present in given configuration")
 	}
 
@@ -717,67 +719,67 @@ func checkConfigValuesValidity(vRAClient *APIClient, d *schema.ResourceData) (*C
 	var catalogItemNameFromId string
 	var err error
 	// if catalog item id is provided, fetch the catalog item name
-	if len(catalogItemName) > 0 {
-		catalogItemIdFromName, err = vRAClient.readCatalogItemIDByName(catalogItemName)
+	if len(providerConfiguration.catalogItemName) > 0 {
+		catalogItemIdFromName, err = vRAClient.readCatalogItemIDByName(providerConfiguration.catalogItemName)
 		if err != nil || catalogItemIdFromName == "" {
-			return nil, fmt.Errorf("Error in finding catalog item id corresponding to the catlog item name %v: \n %v", catalogItemName, err)
+			return nil, fmt.Errorf("Error in finding catalog item id corresponding to the catlog item name %v: \n %v", providerConfiguration.catalogItemName, err)
 		}
 		log.Info("The catalog item id provided in the config is %v\n", catalogItemIdFromName)
 	}
 
 	// if catalog item name is provided, fetch the catalog item id
-	if len(catalogItemID) > 0 { // else if both are provided and matches or just id is provided, use id
-		catalogItemNameFromId, err = vRAClient.readCatalogItemNameByID(catalogItemID)
+	if len(providerConfiguration.catalogItemID) > 0 { // else if both are provided and matches or just id is provided, use id
+		catalogItemNameFromId, err = vRAClient.readCatalogItemNameByID(providerConfiguration.catalogItemID)
 		if err != nil || catalogItemNameFromId == "" {
-			return nil, fmt.Errorf("Error in finding catalog item name corresponding to the catlog item id %v: \n %v", catalogItemID, err)
+			return nil, fmt.Errorf("Error in finding catalog item name corresponding to the catlog item id %v: \n %v", providerConfiguration.catalogItemID, err)
 		}
 		log.Info("The catalog item name corresponding to the catalog item id in the config is:  %v\n", catalogItemNameFromId)
 	}
 
 	// if both catalog item name and id are provided but does not belong to the same catalog item, throw an error
-	if len(catalogItemName) > 0 && len(catalogItemID) > 0 && (catalogItemIdFromName != catalogItemID || catalogItemNameFromId != catalogItemName) {
+	if len(providerConfiguration.catalogItemName) > 0 && len(providerConfiguration.catalogItemID) > 0 && (catalogItemIdFromName != providerConfiguration.catalogItemID || catalogItemNameFromId != providerConfiguration.catalogItemName) {
 		log.Error("The catalog item name %s and id %s does not belong to the same catalog item. Provide either name or id.")
 		return nil, errors.New("The catalog item name %s and id %s does not belong to the same catalog item. Provide either name or id.")
-	} else if len(catalogItemID) > 0 { // else if both are provided and matches or just id is provided, use id
-		d.Set(utils.CATALOG_ID, catalogItemID)
+	} else if len(providerConfiguration.catalogItemID) > 0 { // else if both are provided and matches or just id is provided, use id
+		d.Set(utils.CATALOG_ID, providerConfiguration.catalogItemID)
 		d.Set(utils.CATALOG_NAME, catalogItemNameFromId)
-	} else if len(catalogItemName) > 0 { // else if name is provided, use the id fetched from the name
+	} else if len(providerConfiguration.catalogItemName) > 0 { // else if name is provided, use the id fetched from the name
 		d.Set(utils.CATALOG_ID, catalogItemIdFromName)
-		d.Set(utils.CATALOG_NAME, catalogItemName)
+		d.Set(utils.CATALOG_NAME, providerConfiguration.catalogItemName)
 	}
 
 	// update the catalogItemID var with the updated id
-	catalogItemID = d.Get(utils.CATALOG_ID).(string)
+	providerConfiguration.catalogItemID = d.Get(utils.CATALOG_ID).(string)
 
 	// Get request template for catalog item.
-	requestTemplate, err := vRAClient.GetCatalogItemRequestTemplate(catalogItemID)
+	requestTemplate, err := vRAClient.GetCatalogItemRequestTemplate(providerConfiguration.catalogItemID)
 	if err != nil {
 		return nil, err
 	}
-	log.Info("The request template data corresponding to the catalog item %v is: \n %v\n", catalogItemID, requestTemplate.Data)
+	log.Info("The request template data corresponding to the catalog item %v is: \n %v\n", providerConfiguration.catalogItemID, requestTemplate.Data)
 
-	for field1 := range catalogConfiguration {
-		requestTemplate.Data[field1] = catalogConfiguration[field1]
+	for field1 := range providerConfiguration.catalogConfiguration {
+		requestTemplate.Data[field1] = providerConfiguration.catalogConfiguration[field1]
 
 	}
 	// get the business group id from name
 	var businessGroupIdFromName string
-	if len(businessGroupName) > 0 {
-		businessGroupIdFromName, err := vRAClient.GetBusinessGroupId(businessGroupName)
+	if len(providerConfiguration.businessGroupName) > 0 {
+		businessGroupIdFromName, err := vRAClient.GetBusinessGroupId(providerConfiguration.businessGroupName)
 		if err != nil || businessGroupIdFromName == "" {
 			return nil, err
 		}
 	}
 
 	//if both business group name and id are provided but does not belong to the same business group, throw an error
-	if len(businessGroupName) > 0 && len(businessGroupId) > 0 && businessGroupIdFromName != businessGroupId {
-		log.Error("The business group name %s and id %s does not belong to the same business group. Provide either name or id.", businessGroupName, businessGroupId)
-		return nil, errors.New(fmt.Sprintf("The business group name %s and id %s does not belong to the same business group. Provide either name or id.", businessGroupName, businessGroupId))
-	} else if len(businessGroupId) > 0 { // else if both are provided and matches or just id is provided, use id
-		log.Info("Setting business group id %s ", businessGroupId)
-		requestTemplate.BusinessGroupID = businessGroupId
-	} else if len(businessGroupName) > 0 { // else if name is provided, use the id fetched from the name
-		log.Info("Setting business group id %s for the group %s ", businessGroupIdFromName, businessGroupName)
+	if len(providerConfiguration.businessGroupName) > 0 && len(providerConfiguration.businessGroupId) > 0 && businessGroupIdFromName != providerConfiguration.businessGroupId {
+		log.Error("The business group name %s and id %s does not belong to the same business group. Provide either name or id.", providerConfiguration.businessGroupName, providerConfiguration.businessGroupId)
+		return nil, errors.New(fmt.Sprintf("The business group name %s and id %s does not belong to the same business group. Provide either name or id.", providerConfiguration.businessGroupName, providerConfiguration.businessGroupId))
+	} else if len(providerConfiguration.businessGroupId) > 0 { // else if both are provided and matches or just id is provided, use id
+		log.Info("Setting business group id %s ", providerConfiguration.businessGroupId)
+		requestTemplate.BusinessGroupID = providerConfiguration.businessGroupId
+	} else if len(providerConfiguration.businessGroupName) > 0 { // else if name is provided, use the id fetched from the name
+		log.Info("Setting business group id %s for the group %s ", businessGroupIdFromName, providerConfiguration.businessGroupName)
 		requestTemplate.BusinessGroupID = businessGroupIdFromName
 	}
 	return requestTemplate, nil
@@ -839,27 +841,29 @@ func (vRAClient *APIClient) GetBusinessGroupId(businessGroupName string) (string
 }
 
 // read the config file
-func readProviderConfiguration(d *schema.ResourceData) {
+func readProviderConfiguration(d *schema.ResourceData) *ProviderConfiguration {
 
+	providerConfiguration := new(ProviderConfiguration)
 	log.Info("Reading the provider configuration data.....")
-	catalogItemName = strings.TrimSpace(d.Get(utils.CATALOG_NAME).(string))
-	log.Info("Catalog item name: %v ", catalogItemName)
-	catalogItemID = strings.TrimSpace(d.Get(utils.CATALOG_ID).(string))
-	log.Info("Catalog item ID: %v", catalogItemID)
-	businessGroupName = strings.TrimSpace(d.Get(utils.BUSINESS_GROUP_NAME).(string))
-	log.Info("Business Group name: %v", businessGroupName)
-	businessGroupId = strings.TrimSpace(d.Get(utils.BUSINESS_GROUP_ID).(string))
-	log.Info("Business Group Id: %v", businessGroupId)
-	waitTimeout = d.Get(utils.WAIT_TIME_OUT).(int) * 60
-	log.Info("Wait time out: %v ", waitTimeout)
-	failedMessage = strings.TrimSpace(d.Get(utils.FAILED_MESSAGE).(string))
-	log.Info("Failed message: %v ", failedMessage)
-	resourceConfiguration = d.Get(utils.RESOURCE_CONFIGURATION).(map[string]interface{})
-	log.Info("Resource Configuration: %v ", resourceConfiguration)
-	resourceDisks = d.Get(utils.RESOURCE_DISKS).([]interface{})
-	log.Info("Resource Disks: %v ", resourceDisks)
-	deploymentConfiguration = d.Get(utils.DEPLOYMENT_CONFIGURATION).(map[string]interface{})
-	log.Info("Deployment Configuration: %v ", deploymentConfiguration)
-	catalogConfiguration = d.Get(utils.CATALOG_CONFIGURATION).(map[string]interface{})
-	log.Info("Catalog configuration: %v ", catalogConfiguration)
+	providerConfiguration.catalogItemName = strings.TrimSpace(d.Get(utils.CATALOG_NAME).(string))
+	log.Info("Catalog item name: %v ", providerConfiguration.catalogItemName)
+	providerConfiguration.catalogItemID = strings.TrimSpace(d.Get(utils.CATALOG_ID).(string))
+	log.Info("Catalog item ID: %v", providerConfiguration.catalogItemID)
+	providerConfiguration.businessGroupName = strings.TrimSpace(d.Get(utils.BUSINESS_GROUP_NAME).(string))
+	log.Info("Business Group name: %v", providerConfiguration.businessGroupName)
+	providerConfiguration.businessGroupId = strings.TrimSpace(d.Get(utils.BUSINESS_GROUP_ID).(string))
+	log.Info("Business Group Id: %v", providerConfiguration.businessGroupId)
+	providerConfiguration.waitTimeout = d.Get(utils.WAIT_TIME_OUT).(int) * 60
+	log.Info("Wait time out: %v ", providerConfiguration.waitTimeout)
+	providerConfiguration.failedMessage = strings.TrimSpace(d.Get(utils.FAILED_MESSAGE).(string))
+	log.Info("Failed message: %v ", providerConfiguration.failedMessage)
+	providerConfiguration.resourceConfiguration = d.Get(utils.RESOURCE_CONFIGURATION).(map[string]interface{})
+	log.Info("Resource Configuration: %v ", providerConfiguration.resourceConfiguration)
+	providerConfiguration.deploymentConfiguration = d.Get(utils.DEPLOYMENT_CONFIGURATION).(map[string]interface{})
+	log.Info("Deployment Configuration: %v ", providerConfiguration.deploymentConfiguration)
+	providerConfiguration.catalogConfiguration = d.Get(utils.CATALOG_CONFIGURATION).(map[string]interface{})
+	log.Info("Catalog configuration: %v ", providerConfiguration.catalogConfiguration)
+	providerConfiguration.resourceDisks = d.Get(utils.RESOURCE_DISKS).([]interface{})
+	log.Info("Resource Disks: %v ", providerConfiguration.resourceDisks)
+	return providerConfiguration
 }

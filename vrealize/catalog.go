@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/birdypme/terraform-provider-vra7/utils"
 )
 
 //CatalogItemRequestTemplate - A structure that captures a catalog request template, to be filled in and POSTED.
@@ -30,9 +32,7 @@ type CatalogItem struct {
 //GetCatalogItemRequestTemplate - Call to retrieve a request template for a catalog item.
 func (c *APIClient) GetCatalogItemRequestTemplate(catalogItemId string) (*CatalogItemRequestTemplate, error) {
 	//Form a path to read catalog request template via REST call
-	path := fmt.Sprintf("/catalog-service/api/consumer/entitledCatalogItems/"+
-		"%s/requests/template",
-		catalogItemId)
+	path := fmt.Sprintf(utils.GET_ENTITLEDCATALOGITEM_TEMPLATE_API, catalogItemId)
 
 	log.Info("GetCatalogItemRequestTemplate->path %v\n", path)
 
