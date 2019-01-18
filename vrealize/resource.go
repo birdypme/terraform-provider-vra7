@@ -15,7 +15,6 @@ import (
 	"github.com/op/go-logging"
 )
 
-// jchampseix: fix these global variables to become (most of them) local variables!
 var (
 	log = logging.MustGetLogger(utils.LOGGER_ID)
 )
