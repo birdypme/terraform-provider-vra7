@@ -3,8 +3,8 @@ package vrealize
 import (
 	"time"
 
+	"github.com/hashicorp/terraform-provider-vra7/utils"
 	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/birdypme/terraform-provider-vra7/utils"
 )
 
 //ResourceActionTemplate - is used to store information
@@ -259,7 +259,7 @@ func resourceSchema() map[string]*schema.Schema {
 			Optional: true,
 			Computed: true,
 			Elem: &schema.Schema{
-				Type:     schema.TypeMap,
+				Type: schema.TypeMap,
 			},
 		},
 		utils.CATALOG_CONFIGURATION: {

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/birdypme/terraform-provider-vra7/utils"
+	"github.com/hashicorp/terraform-provider-vra7/utils"
 )
 
 //CatalogItemRequestTemplate - A structure that captures a catalog request template, to be filled in and POSTED.

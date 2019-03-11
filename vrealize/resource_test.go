@@ -11,9 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/birdypme/terraform-provider-vra7/utils"
+	"github.com/hashicorp/terraform-provider-vra7/utils"
 	"github.com/hashicorp/terraform/helper/schema"
-	"gopkg.in/jarcoal/httpmock.v1"
 )
 
 var client APIClient

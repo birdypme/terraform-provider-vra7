@@ -1,4 +1,6 @@
-VERSION=0.0.1
+# https://www.hashicorp.com/blog/hashicorp-terraform-provider-versioning
+# terraform-provider-NAME_vX.Y.Z
+VERSION=1.0.0
 NAME=terraform-provider-vra7
 
 SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
@@ -15,7 +17,7 @@ build:
 check:
 	@gofmt -d ${SRC}
 	@test -z "$(shell gofmt -l ${SRC} | tee /dev/stderr)" || { echo "Fix formatting issues with 'make fmt'"; exit 1; }
-	@for d in $$(go list ./... | grep -v /vendor/); do golint $${d}; done
+	# @for d in $$(go list ./... | grep -v /vendor/); do golint $${d}; done
 	@go tool vet main.go
 	@go tool vet vrealize
 	go test ./...

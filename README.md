@@ -240,3 +240,19 @@ The terraform-provider-vra7 project team welcomes contributions from the communi
 ## License
 
 terraform-provider-vra7 is available under the [MIT license](LICENSE).
+
+# FactSet changes
+
+from linux/wsl:
+
+```bash
+export GIT_SSL_NO_VERIFY=1
+go mod init github.com/hashicorp/terraform-provider-vra7
+go get -insecure # FactSet with man-in-the-middle SSL...
+make # check and build
+
+make dev # local install for development
+make release # creating the actual versioned packaged zip for release
+```
+
+zip required: `sudo apt-get install zip`

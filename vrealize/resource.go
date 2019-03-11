@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/birdypme/terraform-provider-vra7/utils"
+	"github.com/hashicorp/terraform-provider-vra7/utils"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/op/go-logging"
 )
